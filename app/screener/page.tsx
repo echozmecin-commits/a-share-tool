@@ -175,7 +175,7 @@ export default function ScreenerPage() {
             本次扫描未发现满足所有条件的股票。
           </p>
           <p className="text-xs text-muted mt-1">
-            这可能意味着当前市场环境下 AI 板块尚未形成强势多头行情。
+            本次扫描范围为 AI 概念股（最多 300 只）；未发现满足均线多头条件的标的。
           </p>
         </div>
       )}

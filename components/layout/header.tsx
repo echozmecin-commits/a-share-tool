@@ -4,44 +4,57 @@ import { useEffect, useState } from "react";
 import { formatPercent, getChangeColor } from "@/lib/utils";
 import type { IndexData } from "@/lib/types";
 
-const MOCK_INDICES: IndexData[] = [
-  { symbol: "000001", name: "上证指数", price: 3350.25, change: 15.32, changePercent: 0.46 },
-  { symbol: "399001", name: "深证成指", price: 10250.88, change: -28.65, changePercent: -0.28 },
-  { symbol: "399006", name: "创业板指", price: 2085.33, change: 12.05, changePercent: 0.58 },
-  { symbol: "000688", name: "科创50", price: 1025.66, change: -5.22, changePercent: -0.51 },
-];
-
 export default function Header() {
-  const [indices, setIndices] = useState<IndexData[]>(MOCK_INDICES);
+  const [indices, setIndices] = useState<IndexData[]>([]);
+  const [offline, setOffline] = useState(false);
 
   useEffect(() => {
     async function fetchIndices() {
       try {
-        const res = await fetch("/api/stock/quote?type=index");
-        if (res.ok) {
-          const data = await res.json();
-          if (data.length > 0) setIndices(data);
+        const res = await fetch("/api/stock/quote?type=index", { cache: "no-store" });
+        if (!res.ok) throw new Error("quote request failed");
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setIndices(data);
+          setOffline(false);
+        } else {
+          setOffline(true);
         }
-      } catch {}
+      } catch {
+        setOffline(true);
+      }
     }
     fetchIndices();
-    const timer = setInterval(fetchIndices, 30000);
+    const timer = setInterval(() => {
+      if (!document.hidden) fetchIndices();
+    }, 60000);
     return () => clearInterval(timer);
   }, []);
 
   return (
-    <header className="h-12 bg-card border-b border-border flex items-center px-4 gap-6 shrink-0">
-      {indices.map((idx) => (
-        <div key={idx.symbol} className="flex items-center gap-2 text-sm">
-          <span className="text-muted">{idx.name}</span>
-          <span className={getChangeColor(idx.change)}>
-            {idx.price.toFixed(2)}
-          </span>
-          <span className={`text-xs ${getChangeColor(idx.changePercent)}`}>
-            {formatPercent(idx.changePercent)}
-          </span>
-        </div>
-      ))}
+    <header className="h-12 bg-card border-b border-border flex items-center px-4 gap-6 shrink-0 overflow-x-auto">
+      {indices.length === 0 ? (
+        <span className="text-xs text-muted">
+          {offline ? "行情数据未连接（请启动 Python 数据服务）" : "行情加载中…"}
+        </span>
+      ) : (
+        indices.map((idx) => (
+          <div key={idx.symbol} className="flex items-center gap-2 text-sm whitespace-nowrap">
+            <span className="text-muted">{idx.name}</span>
+            <span className={getChangeColor(idx.change)}>
+              {Number.isFinite(idx.price) ? idx.price.toFixed(2) : "—"}
+            </span>
+            <span className={`text-xs ${getChangeColor(idx.changePercent)}`}>
+              {formatPercent(idx.changePercent)}
+            </span>
+          </div>
+        ))
+      )}
+      {offline && indices.length > 0 && (
+        <span className="text-[10px] text-amber-500 border border-amber-500/40 rounded px-1.5 py-0.5 whitespace-nowrap">
+          数据可能延迟
+        </span>
+      )}
     </header>
   );
 }

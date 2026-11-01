@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { createChart, ColorType, HistogramSeries, LineSeries } from "lightweight-charts";
+import { toChartTime } from "@/lib/utils";
 
 interface MacdChartProps {
   dates: string[];
@@ -9,9 +10,10 @@ interface MacdChartProps {
   dea: (number | null)[];
   macd: (number | null)[];
   height?: number;
+  period?: string;
 }
 
-export default function MacdChart({ dates, dif, dea, macd, height = 150 }: MacdChartProps) {
+export default function MacdChart({ dates, dif, dea, macd, height = 150, period }: MacdChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -38,7 +40,7 @@ export default function MacdChart({ dates, dif, dea, macd, height = 150 }: MacdC
     });
     const macdData = macd
       .map((v, i) => ({
-        time: dates[i],
+        time: toChartTime(dates[i], period),
         value: v,
         color: v !== null && v >= 0 ? "rgba(239,68,68,0.6)" : "rgba(34,197,94,0.6)",
       }))
@@ -52,7 +54,7 @@ export default function MacdChart({ dates, dif, dea, macd, height = 150 }: MacdC
       lastValueVisible: false,
     });
     difSeries.setData(
-      dif.map((v, i) => ({ time: dates[i], value: v })).filter((d) => d.value !== null) as any
+      dif.map((v, i) => ({ time: toChartTime(dates[i], period), value: v })).filter((d) => d.value !== null) as any
     );
 
     const deaSeries = chart.addSeries(LineSeries, {
@@ -62,7 +64,7 @@ export default function MacdChart({ dates, dif, dea, macd, height = 150 }: MacdC
       lastValueVisible: false,
     });
     deaSeries.setData(
-      dea.map((v, i) => ({ time: dates[i], value: v })).filter((d) => d.value !== null) as any
+      dea.map((v, i) => ({ time: toChartTime(dates[i], period), value: v })).filter((d) => d.value !== null) as any
     );
 
     chart.timeScale().fitContent();
@@ -77,7 +79,7 @@ export default function MacdChart({ dates, dif, dea, macd, height = 150 }: MacdC
       window.removeEventListener("resize", handleResize);
       chart.remove();
     };
-  }, [dates, dif, dea, macd, height]);
+  }, [dates, dif, dea, macd, height, period]);
 
   return (
     <div>

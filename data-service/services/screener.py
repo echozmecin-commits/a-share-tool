@@ -2,8 +2,13 @@ import akshare as ak
 import pandas as pd
 import threading
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from services.indicator import calc_ma
+
+# 演示环境限制扫描范围：AI 概念股优先，最多 300 只；避免一次点击触发全市场串行请求。
+MAX_SCAN = 300
+MAX_WORKERS = 8
 
 AI_CONCEPTS = [
     "人工智能", "AIGC概念", "算力概念", "CPO概念", "机器人概念", "AI应用",
@@ -128,32 +133,45 @@ def run_screen_task(task_id: str):
     task = _tasks[task_id]
     task["status"] = "fetching_stocks"
 
-    candidates = get_all_a_stocks()
+    candidates = get_ai_concept_stocks()
+    if not candidates:
+        candidates = get_all_a_stocks()
+    candidates = candidates[:MAX_SCAN]
     task["total"] = len(candidates)
+    task["universe"] = "AI 概念股（最多 300 只）" if candidates else "全市场（最多 300 只）"
     task["status"] = "scanning"
 
-    for i, stock in enumerate(candidates):
-        if task.get("cancelled"):
-            task["status"] = "cancelled"
-            return
+    if not candidates:
+        task["status"] = "done"
+        return
 
-        task["scanned"] = i + 1
-        task["currentStock"] = f"{stock['name']}({stock['symbol']})"
-
-        result = check_stock(stock["symbol"])
-        if result:
-            task["results"].append({
-                "symbol": stock["symbol"],
-                "name": stock["name"],
-                **result,
-            })
-            task["found"] = len(task["results"])
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+        futures = {pool.submit(check_stock, s["symbol"]): s for s in candidates}
+        for i, future in enumerate(as_completed(futures)):
+            if task.get("cancelled"):
+                task["status"] = "cancelled"
+                return
+            stock = futures[future]
+            task["scanned"] = i + 1
+            task["currentStock"] = f"{stock['name']}({stock['symbol']})"
+            try:
+                result = future.result()
+            except Exception as e:
+                print(f"Error checking {stock['symbol']}: {e}")
+                result = None
+            if result:
+                task["results"].append({
+                    "symbol": stock["symbol"],
+                    "name": stock["name"],
+                    **result,
+                })
+                task["found"] = len(task["results"])
 
     task["status"] = "done"
 
 
 def start_screen() -> str:
-    task_id = str(uuid.uuid4())[:8]
+    task_id = str(uuid.uuid4())
     _tasks[task_id] = {
         "status": "pending",
         "total": 0,
@@ -161,6 +179,7 @@ def start_screen() -> str:
         "found": 0,
         "results": [],
         "currentStock": "",
+        "universe": "",
         "cancelled": False,
     }
     thread = threading.Thread(target=run_screen_task, args=(task_id,), daemon=True)

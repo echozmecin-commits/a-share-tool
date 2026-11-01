@@ -3,11 +3,13 @@
 import { useEffect, useRef } from "react";
 import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries } from "lightweight-charts";
 import type { KlineData } from "@/lib/types";
+import { toChartTime } from "@/lib/utils";
 
 interface KlineChartProps {
   data: KlineData[];
   indicators?: Record<string, (number | null)[]>;
   height?: number;
+  period?: string;
 }
 
 const MA_COLORS: Record<string, string> = {
@@ -19,7 +21,7 @@ const MA_COLORS: Record<string, string> = {
   ma250: "#ec4899",
 };
 
-export default function KlineChart({ data, indicators, height = 500 }: KlineChartProps) {
+export default function KlineChart({ data, indicators, height = 500, period }: KlineChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -58,7 +60,7 @@ export default function KlineChart({ data, indicators, height = 500 }: KlineChar
     });
 
     const candleData = data.map((d) => ({
-      time: d.date as string,
+      time: toChartTime(d.date, period),
       open: d.open,
       high: d.high,
       low: d.low,
@@ -76,7 +78,7 @@ export default function KlineChart({ data, indicators, height = 500 }: KlineChar
     });
 
     const volumeData = data.map((d) => ({
-      time: d.date as string,
+      time: toChartTime(d.date, period),
       value: d.volume,
       color: d.close >= d.open ? "rgba(239,68,68,0.4)" : "rgba(34,197,94,0.4)",
     }));
@@ -95,7 +97,7 @@ export default function KlineChart({ data, indicators, height = 500 }: KlineChar
           });
           const maData = (indicators[key] as (number | null)[])
             .map((v, i) => ({
-              time: dates[i],
+              time: toChartTime(dates[i], period),
               value: v,
             }))
             .filter((d) => d.value !== null);
@@ -114,7 +116,7 @@ export default function KlineChart({ data, indicators, height = 500 }: KlineChar
             lastValueVisible: false,
           });
           const lineData = (indicators[key] as (number | null)[])
-            .map((v, i) => ({ time: dates[i], value: v }))
+            .map((v, i) => ({ time: toChartTime(dates[i], period), value: v }))
             .filter((d) => d.value !== null);
           series.setData(lineData as any);
         });
@@ -134,7 +136,7 @@ export default function KlineChart({ data, indicators, height = 500 }: KlineChar
       window.removeEventListener("resize", handleResize);
       chart.remove();
     };
-  }, [data, indicators, height]);
+  }, [data, indicators, height, period]);
 
   return <div ref={containerRef} className="w-full" />;
 }

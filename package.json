@@ -2,6 +2,15 @@
   "name": "a-share-tool",
   "version": "0.1.0",
   "private": true,
+  "description": "A 股行情与资金流看板原型：Next.js + FastAPI + AKShare",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/echozmecin-commits/a-share-tool.git"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
